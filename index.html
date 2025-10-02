@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>오늘이 행운</title>
+  <meta name="description" content="이름+날짜로 안정적으로 생성되는 운세. 결과 화면은 행운색에 맞춰 전체 테마가 자동으로 조화롭게 바뀝니다."/>
+  <style>
+    :root{
+      /* 초기 값(랜더링 직후 JS가 행운색에 맞춰 덮어씌움) */
+      --bg:#0b0f19;         /* 배경 */
+      --bg2:#0e1426;        /* 배경 보조 */
+      --card:#12182a;       /* 카드 */
+      --ink:#eaeefc;        /* 본문 글자 */
+      --muted:#aeb7d8;      /* 보조 텍스트 */
+      --accent:#7aa9ff;     /* 강조(행운색) */
+      --chip:#a5c8ff;       /* 칩 윤곽 */
+      --ring:#a5c8ff;       /* 포커스 */
+      --shadow: 0 10px 32px rgba(0,0,0,.35);
+      --radius:22px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; color:var(--ink);
+      background: radial-gradient(1100px 700px at 50% -8%, var(--bg2) 0%, var(--bg) 60%);
+      font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,Helvetica,Arial,sans-serif;
+    }
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:18px}
+    .card{width:100%;max-width:560px;background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.12);padding:22px 18px;border-radius:var(--radius);box-shadow:var(--shadow)}
+    h1,h2{letter-spacing:.2px}
+    h1{font-size:24px;margin:0 0 8px}
+    h2{font-size:22px;margin:0}
+    p.lead{color:var(--muted);margin-top:0}
+    .field{display:flex;gap:10px;margin:14px 0 6px}
+    input[type="text"]{flex:1;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.16);padding:14px;border-radius:14px;color:var(--ink);font-size:16px}
+    input::placeholder{color:rgba(255,255,255,.55)}
+    button{appearance:none;border:0;background:linear-gradient(180deg,var(--accent),rgba(255,255,255,.85));color:#111;padding:13px 14px;border-radius:14px;font-weight:800;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.25)}
+    button:focus{outline:2px solid var(--ring);outline-offset:2px}
+
+    /* 결과 레이아웃 */
+    .result-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+    .result-title{font-size:20px;margin:0}
+    .chip{display:inline-flex;align-items:center;gap:8px;border:1px dashed rgba(255,255,255,.28);border-radius:999px;padding:8px 12px}
+    .swatch{width:18px;height:18px;border-radius:999px;border:2px solid rgba(0,0,0,.18);background:var(--accent)}
+    .swatch-label{font-size:13px;color:var(--muted)}
+
+    .panel{background:var(--card);border:1px solid rgba(255,255,255,.10);border-radius:16px;padding:14px;margin-top:12px}
+    .panel p{margin:8px 0}
+
+    .banner{height:64px;border-radius:14px;margin:10px 0 4px;border:1px solid rgba(0,0,0,.25);box-shadow: inset 0 0 0 2px rgba(255,255,255,.08);background:linear-gradient(90deg,var(--accent), rgba(255,255,255,.35))}
+
+    /* 모바일 타이포 최적화 */
+    @media (max-width:380px){
+      .card{padding:18px 14px}
+      h1{font-size:20px}
+      .result-title{font-size:18px}
+      .chip{padding:6px 10px}
+      .panel{padding:12px}
+    }
+    /* 오늘의 문장 스타일 */
+.quote{
+  color: var(--ink);
+  opacity:.95;
+  font-weight: 600;
+  letter-spacing:.2px;
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  border: 1px solid rgba(255,255,255,.10);
+}
+/* 패널 안 문단 간격 살짝 다듬기 */
+.panel p:first-child{ margin-top: 2px; }
+.panel p:last-child { margin-bottom: 2px; }
+
+/* 오늘의 문장 섹션 */
+/* 오늘의 문장: 한 박스에 모두 담기 */
+/* 오늘의 문장: 한 박스에 모두 담기 */
+.quote-block{
+  margin-top: 26px; /* 운세 파트와 간격 살짝 더 */
+}
+
+.quote-box{
+  text-align: center;
+  padding: 16px 14px;
+  border-radius: 14px;
+
+  /* 오늘의 색(var(--accent))을 살짝 섞은 배경/외곽선/글로우 */
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent) 12%, transparent) 0%,
+      rgba(255,255,255,.03) 100%
+    );
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, rgba(255,255,255,.10));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent),
+    0 10px 28px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+/* 상단 작은 제목(살짝 액센트 톤) */
+.quote-heading{
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: .3px;
+  color: color-mix(in srgb, var(--accent) 65%, var(--muted));
+  margin: 0 0 10px;
+}
+
+/* 본문 문장: 크기 ↓, 같은 폰트 */
+.quote-line{
+  margin: 0;
+  font-weight: 700;
+  font-size: 16px;           /* ← 이전 18px → 16px로 줄임 */
+  line-height: 1.7;
+  color: var(--ink);
+  letter-spacing: .2px;
+  text-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 12%, transparent);
+  word-break: keep-all;   /* CJK에서도 단어(어절) 단위로만 줄바꿈 */
+  line-break: loose;      /* 한국어 줄바꿈 품질 향상 */
+  overflow-wrap: anywhere;/* 아주 긴 영어/URL이 있을 때만 안전하게 줄바꿈 */
+  hyphens: none;          /* 하이픈 자동 분리 금지 */
+}
+
+/* 작가: 한 줄 아래, -작가명- 형식, 살짝 액센트 톤 */
+.quote-author{
+  margin: 10px 0 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  text-align: center;
+  color: color-mix(in srgb, var(--accent) 55%, var(--muted));
+}
+
+
+
+
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <!-- 1) 이름 입력 화면 -->
+  <div class="card" id="screen-intro" hidden>
+    <h1>오늘이 행운 ✨</h1>
+    <p class="lead">이름을 입력하면 <b>오늘의 운세</b>를 보여드려요. (같은 이름+날짜면 결과 동일)</p>
+    <div class="field">
+      <input id="nameInput" type="text" inputmode="text" autocomplete="name" maxlength="30" placeholder="이름을 입력하세요" />
+      <button id="goBtn">확인</button>
+    </div>
+    <p class="lead" style="font-size:12px">URL 뒤에 <code>#이름</code>을 붙이면 결과 화면으로 바로 이동합니다.</p>
+  </div>
+
+  <!-- 2) 결과 화면: 날짜/점수/무드/뒤로가기/링크/복사 모두 제거, 행운색만 시각화 -->
+  <div class="card" id="screen-result" hidden>
+    <div class="result-head">
+      <h2 class="result-title" id="title">오늘의 운세</h2>
+      <span class="chip">
+        <span class="swatch" id="swatch"></span>
+        <span class="swatch-label" id="luckyLabel">행운색</span>
+      </span>
+    </div>
+    <div class="banner" id="banner"></div>
+
+    <div class="panel">
+      <p id="msgToday"></p>
+      <p id="msgAdvice"></p>
+
+    </div>
+<div class="quote-block" id="quoteBlock" aria-label="오늘의 문장">
+  <div class="quote-box">
+    <div class="quote-heading">오늘의 문장</div>
+    <p id="quoteText" class="quote-line"></p>
+    <p id="quoteAuthor" class="quote-author"></p>
+  </div>
+</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ===== Utilities =====
+  function todayYMD(){
+    const tz = 'Asia/Seoul';
+    const d = new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+  function cyrb53(str, seed=0){
+    let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+    for (let i=0, ch; i<str.length; i++){
+      ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1>>>16), 2246822507) ^ Math.imul(h2 ^ (h2>>>13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+  }
+  function mulberry32(a){ return function(){ let t = a += 0x6D2B79F5; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; } }
+  function seededRNG(name, date){ return mulberry32(cyrb53(`${name}|${date}`)); }
+  function choice(rng, arr){ return arr[Math.floor(rng()*arr.length)]; }
+
+  // ===== Color helpers =====
+  function hexToHsl(hex){
+    hex = hex.replace('#','');
+    if(hex.length===3) hex = hex.split('').map(x=>x+x).join('');
+    const r = parseInt(hex.substring(0,2),16)/255;
+    const g = parseInt(hex.substring(2,4),16)/255;
+    const b = parseInt(hex.substring(4,6),16)/255;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b);
+    let h, s, l = (max+min)/2;
+    if(max===min){ h=s=0; }
+    else{
+      const d = max-min;
+      s = l>0.5 ? d/(2-max-min) : d/(max+min);
+      switch(max){
+        case r: h = (g-b)/d + (g<b?6:0); break;
+        case g: h = (b-r)/d + 2; break;
+        case b: h = (r-g)/d + 4; break;
+      }
+      h/=6;
+    }
+    return {h:Math.round(h*360), s:Math.round(s*100), l:Math.round(l*100)};
+  }
+  function hslToHex(h,s,l){
+    h/=360; s/=100; l/=100;
+    function hue2rgb(p,q,t){ if(t<0) t+=1; if(t>1) t-=1; if(t<1/6) return p+(q-p)*6*t; if(t<1/2) return q; if(t<2/3) return p+(q-p)*(2/3 - t)*6; return p; }
+    let r,g,b;
+    if(s===0){ r=g=b=l; }
+    else{
+      const q = l<0.5 ? l*(1+s) : l + s - l*s;
+      const p = 2*l - q;
+      r = hue2rgb(p,q,h+1/3);
+      g = hue2rgb(p,q,h);
+      b = hue2rgb(p,q,h-1/3);
+    }
+    const toHex = x=>('#'+[r,g,b].map(v=>{ const h=Math.round(v*255).toString(16).padStart(2,'0'); return h; }).join('')).slice(1);
+    return toHex();
+  }
+  function clamp(n,min,max){ return Math.min(max, Math.max(min, n)); }
+
+  function applyThemeFromLucky(hex){
+    const {h,s,l} = hexToHsl(hex);
+    // 어두운 배경/카드 계층을 행운색의 hue로 생성(채도 낮추고 명도 낮춤)
+    const bg  = '#'+hslToHex(h, clamp(Math.round(s*0.45), 18, 52), 8);
+    const bg2 = '#'+hslToHex(h, clamp(Math.round(s*0.55), 22, 58), 14);
+    const card= '#'+hslToHex(h, clamp(Math.round(s*0.50), 18, 55), 18);
+    const accent = hex; // 그대로
+    // 텍스트 대비(밝은 글자)
+    const ink = '#f6f8ff';
+    const muted = '#cfd6f6';
+    const chip = hex; // 윤곽 톤
+    const ring = hex;
+
+    const root = document.documentElement;
+    root.style.setProperty('--bg', bg);
+    root.style.setProperty('--bg2', bg2);
+    root.style.setProperty('--card', card);
+    root.style.setProperty('--accent', accent);
+    root.style.setProperty('--ink', ink);
+    root.style.setProperty('--muted', muted);
+    root.style.setProperty('--chip', chip);
+    root.style.setProperty('--ring', ring);
+  }
+
+  // ===== Color Library (Modular & Extensible) =====
+  // 1) 기본 팔레트(원하는 만큼 추가 가능)
+  const DEFAULT_LUCKY_COLORS = [
+    { name: '허니 옐로우', hex: '#F6C44F' },
+  { name: '앰버', hex: '#FFBF3C' },
+  { name: '선플라워', hex: '#FFC233' },
+  { name: '마리골드', hex: '#F3AB1A' },
+  { name: '모래빛 노랑색', hex: '#F1D17A' },
+  { name: '레몬색', hex: '#F4E04D' },
+  { name: '금색', hex: '#F59E0B' },
+  { name: '버터크림', hex: '#FFF1B2' },
+  { name: '카멜', hex: '#C19A6B' },
+  { name: '탠저린', hex: '#F97316' },
+
+  { name: '주황색', hex: '#FB923C' },
+  { name: '복숭아색', hex: '#FFB07C' },
+  { name: '연어색', hex: '#FF8A80' },
+  { name: '코랄', hex: '#FB7185' },
+  { name: '포멜로 핑크', hex: '#FF6B6B' },
+  { name: '체리 레드', hex: '#E11D48' },
+  { name: '루비', hex: '#D32F2F' },
+  { name: '버건디', hex: '#7F1D1D' },
+  { name: '와인', hex: '#8B1A2B' },
+  { name: '적갈색', hex: '#8C3B3B' },
+
+  { name: '로즈', hex: '#E35D6A' },
+  { name: '로즈쿼츠', hex: '#F6A5C0' },
+  { name: '핫핑크', hex: '#FF4D8D' },
+  { name: '매젠타', hex: '#CA1F7B' },
+  { name: '자주색', hex: '#A61E4D' },
+  { name: '라일락', hex: '#A78BFA' },
+  { name: '라벤더', hex: '#C4B5FD' },
+  { name: '퍼플 헤이즈', hex: '#9A8CF0' },
+  { name: '딥 퍼플', hex: '#6D28D9' },
+  { name: '바이올렛', hex: '#8B5CF6' },
+
+  { name: '남색', hex: '#1E3A8A' },       // (네이비 → 남색)
+  { name: '인디고', hex: '#6366F1' },
+  { name: '딥 블루', hex: '#0B3D91' },
+  { name: '코발트 블루', hex: '#2563EB' },
+  { name: '사파이어 블루', hex: '#1D4ED8' },
+  { name: '스카이 블루', hex: '#38BDF8' },
+  { name: '아쿠아', hex: '#22D3EE' },
+  { name: '아이스 블루', hex: '#BAE6FD' },
+  { name: '스틸 블루', hex: '#4682B4' },
+  { name: '페일 블루', hex: '#A7C7E7' },
+
+  { name: '민트', hex: '#2DD4BF' },
+  { name: '터콰이즈', hex: '#14B8A6' },
+  { name: '에메랄드', hex: '#10B981' },
+  { name: '제이드', hex: '#2E8B57' },
+  { name: '포레스트 그린', hex: '#166534' },
+  { name: '파인 그린', hex: '#0E7C59' },
+  { name: '세이지', hex: '#9AAE97' },
+  { name: '라임 그린', hex: '#A3E635' },
+  { name: '올리브', hex: '#A3A635' },
+  { name: '모스 그린', hex: '#567E3A' },
+
+  { name: '카키', hex: '#8A9A5B' },
+  { name: '초콜릿색', hex: '#7B3F00' },
+  { name: '코코아색', hex: '#6F4E37' },
+  { name: '커피색', hex: '#6F4F28' },
+  { name: '브론즈', hex: '#CD7F32' },
+  { name: '카퍼', hex: '#B87333' },
+  { name: '샌드', hex: '#C2B280' },
+  { name: '스톤', hex: '#928E85' },
+  { name: '클레이', hex: '#B66E5D' },
+  { name: '테라코타', hex: '#E2725B' },
+
+  { name: '브릭 레드', hex: '#B22222' },
+  { name: '러스트', hex: '#B7410E' },
+  { name: '코랄 브라운', hex: '#A65D5E' },
+  { name: '진저', hex: '#B96500' },
+  { name: '머스타드', hex: '#D4A017' },
+  { name: '오트밀', hex: '#D6C7A1' },
+  { name: '베이지', hex: '#F5DEB3' },
+  { name: '아이보리', hex: '#FAF5E6' },
+  { name: '펄 그레이', hex: '#D8DDE6' },
+  { name: '더스티 로즈', hex: '#C48189' },
+
+  { name: '슬레이트', hex: '#64748B' },
+  { name: '차콜', hex: '#3D3D3D' },
+  { name: '건메탈', hex: '#2A3439' },
+  { name: '그래파이트', hex: '#4B5563' },
+  { name: '애쉬 그레이', hex: '#B0B0B0' },
+  { name: '실버', hex: '#C0C0C0' },
+  { name: '플래티넘', hex: '#E5E4E2' },
+  { name: '블랙 포레스트', hex: '#0B1B3A' },
+  { name: '미드나잇 블루', hex: '#0F172A' },
+  { name: '석탄색', hex: '#1F2937' },
+
+  { name: '선셋 오렌지', hex: '#FF7043' },
+  { name: '멜론', hex: '#FFB6A0' },
+  { name: '코랄 피치', hex: '#FFA07A' },
+  { name: '플라밍고 핑크', hex: '#F970A1' },
+  { name: '라즈베리', hex: '#C2185B' },
+  { name: '블루베리', hex: '#3949AB' },
+  { name: '딥 씨 블루', hex: '#01579B' },
+  { name: '틸', hex: '#008080' },
+  { name: '씨폼', hex: '#93E9BE' },
+  { name: '포그 그레이', hex: '#D6D6E7' },
+
+  { name: '스프링 그린', hex: '#00C853' },
+  { name: '민트 크림', hex: '#F5FFFA' },
+  { name: '애프리콧', hex: '#FFBC80' },
+  { name: '카네이션 핑크', hex: '#F8BBD0' },
+  { name: '포피 레드', hex: '#F44336' },
+  { name: '골든 옐로우', hex: '#FFC107' },
+  { name: '페리윙클', hex: '#8EA7FF' },
+  { name: '모브', hex: '#B784A7' },
+  { name: '민들레색', hex: '#FED766' },
+  { name: '샌드스톤', hex: '#C9AE74' },
+    {name:'슬레이트',   hex:'#64748b'}
+  ];
+
+  // 2) 전역 모듈: 나중에 색상 리스트를 외부에서 교체/추가 가능
+  const FortuneTheme = (function(){
+    let _colors = DEFAULT_LUCKY_COLORS.slice();
+    function setColors(list){ if(Array.isArray(list) && list.length){ _colors = list.slice(); } }
+    function addColors(list){ if(Array.isArray(list) && list.length){ _colors = _colors.concat(list); } }
+    function getColors(){ return _colors.slice(); }
+    function pickColor(rng){ return _colors[Math.floor(rng()*_colors.length)] || {name:'앰버',hex:'#ffbf3c'}; }
+    return { setColors, addColors, getColors, pickColor };
+  })();
+
+  // 3) 외부에서 색상 라이브러리 주입 허용
+  if(Array.isArray(window.LUCKY_COLORS) && window.LUCKY_COLORS.length){
+    FortuneTheme.setColors(window.LUCKY_COLORS);
+  }
+
+  // 4) 개발용: URL로 팔레트 강제 (?color=라일락 또는 ?hex=%23ff00aa)
+  function devColorOverride(){
+    const u = new URL(location.href);
+    const byName = u.searchParams.get('color');
+    const byHex  = u.searchParams.get('hex');
+    if(byHex && /^#?[0-9a-fA-F]{6}$/.test(byHex)){
+      const hex = byHex.startsWith('#') ? byHex : ('#'+byHex);
+      return {name: byHex, hex};
+    }
+    if(byName){
+      const found = FortuneTheme.getColors().find(c=>c.name===byName);
+      if(found) return found;
+    }
+    return null;
+  }
+
+
+  const moodLines = [
+  '주변 사람에게 한 번 더 친절하면 예상 밖의 도움이 돌아옵니다.',
+  '너무 급하게 가려 하지 말고 호흡을 고르면 좋은 흐름이 이어집니다.',
+  '오늘은 작은 성의를 보이면 신뢰가 쌓입니다.',
+  '말을 조금 천천히 하면 오해가 줄어듭니다.',
+  '감사를 바로 표현하면 관계가 한층 부드러워집니다.',
+  '한 가지에 집중하면 결과가 맑게 드러납니다.',
+  '기대치를 낮추고 과정을 즐기면 만족이 커집니다.',
+  '근거를 간단히 정리해 두면 선택이 쉬워집니다.',
+  '작은 약속을 지키면 자신감이 자연스럽게 오릅니다.',
+  '무리하지 않고 리듬을 지키면 안정감이 생깁니다.',
+  '말보다 행동으로 보여주면 설득력이 높아집니다.',
+  '느긋하게 시작하면 실수가 줄어듭니다.',
+  '오늘은 친절한 한마디가 뜻밖의 문을 엽니다.',
+  '욕심을 조금 덜면 여유가 들어섭니다.',
+  '정리부터 시작하면 집중이 살아납니다.',
+  '기다림을 선택하면 더 나은 타이밍이 옵니다.',
+  '비교를 멈추면 마음이 가벼워집니다.',
+  '작은 배려가 큰 협력을 부릅니다.',
+  '의견이 다르면 먼저 공통점을 확인하면 길이 열립니다.',
+  '감정이 흔들리면 물 한 잔으로 템포를 낮추세요.',
+  '완벽을 내려놓으면 시작이 쉬워집니다.',
+  '모르는 것은 솔직히 묻는 게 오늘의 지름길입니다.',
+  '해야 할 말을 짧게 정리하면 소통이 매끄럽습니다.',
+  '기대보다 준비를 챙기면 불안이 줄어듭니다.',
+  '서두르지 않고 순서를 지키면 실수가 줄어듭니다.',
+  '오늘은 부탁보다 제안을 하면 반응이 좋습니다.',
+  '작은 칭찬이 분위기를 바꿉니다.',
+  '우선순위를 세 개로 줄이면 답이 보입니다.',
+  '내 몫을 먼저 끝내면 협력의 속도가 납니다.',
+  '고집을 조금 내려놓으면 더 좋은 방법이 보입니다.',
+  '상대의 말끝을 기다리면 진짜 의도가 들립니다.',
+  '기록을 남기면 판단이 선명해집니다.',
+  '한 번 더 확인하면 어지럽던 게 정리됩니다.',
+  '오늘은 미뤄둔 일에 첫 발만 떼도 충분합니다.',
+  '작은 성과를 공유하면 응원이 따라옵니다.',
+  '실수는 빨리 인정하면 문제도 빨리 줄어듭니다.',
+  '기대가 깨져도 방향은 유지하세요—흐름이 돌아옵니다.',
+  '마음이 조급하면 속도를 절반으로 줄여도 괜찮습니다.',
+  '양보 한 번이 더 큰 신뢰로 돌아옵니다.',
+  '경청의 비율을 높이면 해결책이 보입니다.',
+  '결정에 기준을 붙이면 흔들림이 줄어듭니다.',
+  '오늘은 간단함이 최고의 전략입니다.',
+  '휴식은 미룸이 아니라 유지입니다—짧게라도 쉬세요.',
+  '불필요한 설명을 덜면 핵심이 살아납니다.',
+  '작은 정돈이 큰 몰입을 부릅니다.',
+  '마감이 두려우면 범위를 줄이세요—집중이 생깁니다.',
+  '오늘은 “먼저”가 행운을 데려옵니다—먼저 인사하세요.',
+  '단정 짓지 않으면 새로운 선택지가 보입니다.',
+  '걱정이 커지면 해야 할 한 가지에만 집중하세요.',
+  '기대 대신 기준을 세우면 안정이 찾아옵니다.',
+  '명확한 요청이 빠른 도움을 부릅니다.',
+  '비판 앞에서는 사실을 고르고 감정은 내려놓으세요.',
+  '작은 기한을 정하면 추진력이 생깁니다.',
+  '오늘은 질문이 답보다 중요합니다—좋은 질문을 준비하세요.',
+  '주저하면 타이밍이 지나갑니다—작게라도 움직이세요.',
+  '한 번 웃어주면 거리감이 줄어듭니다.',
+  '의심이 들면 확인하고, 맞다면 고마움을 전하세요.',
+  '기대보다 배움을 남기면 후회가 줄어듭니다.',
+  '서로 다른 속도를 인정하면 갈등이 줄어듭니다.',
+  '오늘은 “왜”보다 “다음”이 필요합니다—다음 한 걸음만 정하세요.',
+  '복잡하면 써보세요—복잡함이 정리됩니다.',
+  '작은 규칙이 큰 자유를 줍니다.',
+  '우연을 허용하면 새로운 길이 보입니다.',
+  '감정이 앞서면 시간을 앞세우세요—잠깐만 멈추기.',
+  '피곤하면 효율을 내려놓고 지속을 택하세요.',
+  '말을 아끼면 집중이 모입니다.',
+  '실패처럼 보여도 배운 점을 적으면 의미가 됩니다.',
+  '오늘은 부탁을 받을 가능성이 큽니다—가능과 기한을 분명히 하세요.',
+  '주도권을 잡고 싶다면 먼저 준비하세요.',
+  '반응이 없으면 방식을 바꾸세요—상대의 언어로.',
+  '작은 친절이 돌아오는 속도가 빠른 날입니다.',
+  '의견 충돌이 있어도 존중을 놓치지 않으면 길이 남습니다.',
+  '마음이 산만하면 환경부터 단순하게 하세요.',
+  '정확함이 속도를 이깁니다—천천히, 하지만 흔들림 없이.',
+  '기회는 준비된 평정에 깃듭니다.',
+  '오늘은 “괜찮다”는 말이 큰 위로가 됩니다.',
+  '기분에 끌리지 말고 원칙에 기대세요.',
+  '나와 타인의 경계를 지키면 편안함이 생깁니다.',
+  '작게 시작하면 크게 이어집니다.',
+  '과거를 줄이고 현재를 넓히면 가능성이 보입니다.',
+  '혼자 가도 됩니다—다만 방향을 잊지 마세요.',
+  '작은 성취를 축하하면 내일의 힘이 됩니다.',
+  '선의를 의심하지 않으면 도와줄 손이 나타납니다.',
+  '오늘은 양보다 질이 이깁니다.',
+  '불평을 줄이면 해결에 가까워집니다.',
+  '정직한 피드백이 오래 가는 성장을 만듭니다.',
+  '기회가 보이면 완벽을 기다리지 마세요—바로 시도.',
+  '오늘은 단순한 생활이 마음을 맑게 합니다.',
+  '내일의 나를 위해 지금의 나를 아껴주세요.',
+  '원하는 것을 분명히 말하면 우연이 도와줍니다.',
+  '서툴러도 괜찮습니다—계속하면 익숙해집니다.',
+  '조급함을 내려놓으면 운이 따라옵니다.',
+  '작은 배움 하나가 하루를 바꿉니다.',
+  '거리두기가 필요한 말은 메시지 대신 침묵이 낫습니다.',
+  '잠깐의 산책이 생각의 매듭을 풉니다.',
+  '정성 들인 시작이 자연스러운 마무리를 부릅니다.',
+  '오늘은 받아들이는 용기가 가장 큰 변화입니다.',
+  '관점을 바꾸면 같은 풍경도 새로워집니다.',
+  '스스로에게도 친절하면 타인에게도 부드러워집니다.',
+  '기억보다 기록이 당신을 돕습니다.',
+  '미뤄온 사과를 건네면 마음이 가볍습니다.',
+  '도움이 필요하면 알려주세요—주변은 생각보다 따뜻합니다.',
+  '작게라도 끝내면 운이 붙습니다.',
+  '오늘의 평정이 내일의 기회를 부릅니다.'
+  ];
+  const adviceTasks = [
+  '아침 마음이 초조하니 호흡부터 정리하면 집중이 살아납니다.',
+  '오늘은 개념 간 연결이 잘 보이니 큰 그림부터 그려보자.',
+  '컨디션이 들쭉날쭉하니 짧은 예열로 리듬을 타면 괜찮아집니다.',
+  '문제가 어렵게 느껴지지만 핵심 키워드는 선명해질 거예요.',
+  '외부 소음이 신경 쓰이니 조용한 틈을 찾아 한 덩어리만 끝내자.',
+  '암기가 답답해도 반복 노출이 쌓이면 어느 순간 편해집니다.',
+  '속도가 느리게 느껴져도 정확도가 올라가는 날입니다.',
+  '모의고사 성적에 마음이 흔들려도 오답 정리는 확실히 남아요.',
+  '교과서 문장이 낯설어도 표·그림을 같이 보면 이해가 열립니다.',
+  '피곤함이 밀려와도 작은 완주가 자신감을 키웁니다.',
+  '계획이 과하면 부담이 커지니 오늘은 핵심 두 개만 잡아도 충분해요.',
+  '집중이 자꾸 풀리지만 타이머 한 번에 흐름이 붙습니다.',
+  '불안이 올라오지만 손으로 써 보면 생각이 정돈돼요.',
+  '실수에 마음이 쪼그라들지만 체크리스트로 금방 회복됩니다.',
+  '암기보다 이해가 잘 되는 날이니 이유를 먼저 찾아보자.',
+  '어제의 피로가 남아도 꾸준함이 오늘을 지켜줄 거예요.',
+  '친구 성적이 눈에 밟혀도 나만의 페이스를 지키면 됩니다.',
+  '문제 풀이가 길어져도 구조를 잡으면 풀이 시간이 줄어요.',
+  '모르는 단원이 보여도 낯섦은 금방 익숙해집니다.',
+  '마음이 산만해도 첫 페이지를 넘기면 안정됩니다.',
+  '실전 감각이 둔해 보여도 한 세트만 풀면 감이 돌아와요.',
+  '이해가 느린 것 같아도 정확한 한 번이 빠른 다섯 번을 이깁니다.',
+  '기출이 진부하게 느껴져도 출제 의도는 늘 거기에 있어요.',
+  '암기가 새어 나가도 반복 간격을 두면 오래 머뭅니다.',
+  '부족함이 크게 느껴져도 강점 한 개가 흐름을 바꿉니다.',
+  '문제 지문이 길어도 질문을 먼저 보면 방향이 잡혀요.',
+  '계획표에 빈칸이 보이지만 그 여백이 회복을 돕습니다.',
+  '답이 보일 듯 말 듯해도 근거를 한 줄로 정리하면 선명해집니다.',
+  '속도가 빨라지지만 실수도 늘 수 있으니 멈춤표를 넣어가자.',
+  '동기부여가 약해도 작은 성취가 다음 걸음을 부릅니다.',
+  '눈이 피곤해도 자세를 바꾸면 집중이 돌아와요.',
+  '틀린 문제에 겁이 나도 오답이 곧 성장의 좌표가 됩니다.',
+  '비교에 마음이 무거워도 어제의 나와만 견주면 편안해집니다.',
+  '암기 범위가 넓어 보여도 범위를 나누면 할 만해요.',
+  '머리가 둔한 느낌이 들어도 몸이 풀리면 생각도 풀립니다.',
+  '실전 스트레스가 올라와도 루틴 하나가 마음을 붙잡아 줘요.',
+  '시험이 멀게 느껴져도 하루의 완주가 가까워지게 합니다.',
+  '풀이 방식이 뒤엉켜도 한 문제를 모델로 삼으면 질서가 생깁니다.',
+  '어려운 개념이 버거워도 비유 하나가 문을 엽니다.',
+  '시간이 모자라 보여도 우선순위는 언제나 답을 줍니다.',
+  '체력은 부족해도 마음의 속도는 조절할 수 있어요.',
+  '진도가 늦어져도 핵심 문항만 건지면 수확이 큽니다.',
+  '집중 자리가 불편해도 익숙함은 금방 만들어집니다.',
+  '불만족스러운 점수가 보여도 추세는 노력의 편을 듭니다.',
+  '암기 카드가 지루해도 한 장 더 넘기면 감이 붙어요.',
+  '주변 말이 복잡해도 교과 개념이 기준이 되어줍니다.',
+  '모의가 망한 날 같아도 원인 한 줄이 다음 점수를 올립니다.',
+  '시작이 무거워도 첫 문단을 쓰면 길이 열려요.',
+  '손이 느린 날이지만 생각은 깊어지는 흐름입니다.',
+  '불필요한 욕심이 고개를 들어도 기본기를 고르면 마음이 가벼워집니다.',
+  '긴장이 심해도 루틴 문장 하나가 손을 안정시켜 줍니다.',
+  '분량이 버겁게 느껴져도 분할하면 진행이 보입니다.',
+  '집중 유지가 힘들어도 짧은 몰입이 쌓이면 충분해요.',
+  '계획이 자꾸 밀려도 오늘의 핵심만 지켜도 괜찮습니다.',
+  '낯선 유형이 보여도 본질은 익숙한 개념에 닿아 있어요.',
+  '속된 마음이 흔들려도 펜을 잡는 순간 돌아옵니다.',
+  '피로가 쌓였지만 회복도 실력의 일부가 됩니다.',
+  '혼자라는 생각이 들어도 노력은 결과로 대답합니다.',
+  '답을 찍고 싶어도 근거 한 줄이 정답률을 올립니다.',
+  '집중 시간이 짧아도 횟수를 늘리면 총량이 채워집니다.',
+  '실수 공포가 생겨도 검토 습관이 든든한 안전망이 됩니다.',
+  '오늘은 정리가 잘 되는 날이니 노트에 줄을 맞춰보자.',
+  '불필요한 비교가 떠올라도 나의 페이스가 제일 안전합니다.',
+  '시험 일정이 숨 가빠도 한 단원씩 끝내면 여유가 생겨요.',
+  '암기가 흔들려도 이해를 붙이면 오래 갑니다.',
+  '논리 전개가 꼬여도 구조도를 그리면 단숨에 풀립니다.',
+  '슬럼프 같아도 작은 변화가 흐름을 바꿔 줍니다.',
+  '성취감이 적어도 꾸준함이 가장 강력한 전략입니다.',
+  '문장 해석이 막혀도 주어와 동사를 잡으면 숨통이 트여요.',
+  '답안 작성이 불안해도 채점 기준을 떠올리면 자신감이 납니다.',
+  '집중력 저하가 와도 자세만 고쳐도 새 기운이 돕습니다.',
+  '개념 간 모순이 보여도 정의를 다시 읽으면 정리됩니다.',
+  '모르는 단어가 튀어나와도 문맥이 길을 안내해 줍니다.',
+  '시간 관리가 엉켜도 가장 중요한 한 조각이 균형을 잡습니다.',
+  '속독이 어려워도 포인트만 찍으면 충분해요.',
+  '답이 안 보이는 날이라도 오답 노트는 배신하지 않습니다.',
+  '주변이 시끄러워도 내 자리만 조용하면 괜찮아요.',
+  '연습문제가 지루해도 손의 기억이 실전을 지킵니다.',
+  '답지에 의존하고 싶어도 먼저 내 논리를 써보면 성장합니다.',
+  '집중 루틴이 흔들려도 다시 시작하면 루틴도 따라옵니다.',
+  '몸이 무겁지만 마음은 가볍게 시작할 수 있어요.',
+  '지치고 흔들려도 오늘의 작은 완주는 충분히 가치 있습니다.',
+  '모의 결과가 시큰둥해도 학습 방향은 선명해지고 있어요.',
+  '교재가 버거워도 페이지는 한 장씩 줄어듭니다.',
+  '감정 기복이 커도 규칙적인 리듬이 안전합니다.',
+  '공부가 싫게 느껴져도 3분만 버티면 온기가 돌아옵니다.',
+  '틀린 개념을 발견해도 수정이 곧 점수로 연결됩니다.',
+  '하루가 짧게 느껴져도 집중의 밀도는 늘릴 수 있어요.',
+  '노력이 티가 안 나도 내면의 저축은 차곡차곡 쌓입니다.',
+  '긴 목표가 막막해도 오늘의 한 걸음이 제일 중요합니다.',
+  '답을 바꿀까 망설여도 근거가 있으면 믿어도 좋아요.',
+  '시간이 빠듯해도 한 세트를 마치면 평온이 돌아옵니다.',
+  '낯선 문제에 주눅 들어도 기본기는 흔들리지 않아요.',
+  '기억이 새어나가도 다시 담으면 더 단단해집니다.',
+  '불안이 크게 느껴져도 내가 통제할 수 있는 것에 집중하자.',
+  '집중이 오래가지 않아도 자주 돌아오면 충분합니다.',
+  '오늘은 이해가 차분히 스며드는 흐름입니다.',
+  '고민이 길어져도 손을 움직이면 답이 가까워집니다.',
+  '완벽하지 않아도 괜찮아요—꾸준함이 결국 완성합니다.',
+  '잠깐의 흔들림이 있어도 방향은 맞게 가고 있어요.',
+  '가끔 느린 나도, 끝내는 사람이 됩니다.',
+  '오늘도 한 칸 전진하면 충분합니다.',
+  '불안과 함께 걷되, 손은 책 위에 두자.',
+  '결국 필요한 건 시작과 지속—그 둘은 오늘도 내 편입니다.',
+  '작은 성취를 모으면 큰 자신감이 됩니다.',
+  '스스로를 믿으면 학습의 리듬이 편안해집니다.',
+  '목표가 크다면, 한 조각씩 완성하면 됩니다.'
+  ];
+
+
+  // ===== 오늘의 문장(추가) =====
+// 외부에서 window.TODAY_LINES = ['...', ...] 로 갈아끼울 수 있음
+const DEFAULT_TODAY_LINES = [
+  '"죽느냐, 사느냐, 그것이 문제로다." - 윌리엄 셰익스피어',
+  '"모든 동물은 평등하다. 그러나 어떤 동물들은 더 평등하다." - 조지 오웰',
+  '"최고의 시대였으며, 최악의 시대였다." - 찰스 디킨스',
+  '"나를 이스마엘이라고 불러라." - 허먼 멜빌',
+  '"그는 나 자신보다도 나 자신이다. 우리의 영혼이 무엇으로 만들어졌든, 그의 것과 나의 것은 동일하다." - 에밀리 브론테',
+  '"어쨌든, 내일은 새로운 날이야." - 마거릿 미첼',
+  '"모든 세상 사람들이 공통적으로 인정하는 진리는, 부유한 독신 남자는 결혼할 아내를 찾고 있다는 것이다." - 제인 오스틴',
+  '"그 공포! 그 공포!" - 조지프 콘래드',
+  '"세상은 모두를 부수지만, 부서진 자들 중 많은 이들은 그 부서진 곳에서 더 강해진다." - 어니스트 헤밍웨이',
+  '"그래서 우리는 계속 앞으로 나아간다. 조류에 맞서서, 끊임없이 과거로 떠밀리며." - F. 스콧 피츠제럴드',
+  '"유혹을 이기는 유일한 방법은 그것에 굴복하는 것이다." - 오스카 와일드',
+  '"우리는 꿈의 재료로 만들어졌으며, 우리의 작은 인생은 잠으로 둘러싸여 있다." - 윌리엄 셰익스피어',
+  '"사람들이 당신을 사랑하지 않는 것보다는 당신이 아닌 사람으로 사랑받는 것이 낫다." - 앙드레 지드',
+  '"모든 방황하는 사람들이 길을 잃은 것은 아니다." - J.R.R. 톨킨',
+  '"나는 언제나 낯선 사람들의 친절에 의지해왔다." - 테네시 윌리엄스',
+  '"빅 브라더가 당신을 지켜보고 있다." - 조지 오웰',
+  '"세상은 하나의 무대, 모든 남녀는 그저 배우에 불과하다." - 윌리엄 셰익스피어',
+  '"결국, 우리는 모두 이야기일 뿐이다." - 마거릿 애트우드',
+  '"누군가를 정말로 이해하려면, 그의 입장에서 생각해봐야 한다. 그의 피부 속으로 들어가 그것을 느껴봐야 한다." - 하퍼 리',
+  '"경계하라. 나는 두려움이 없으니, 그러므로 나는 강력하다." - 메리 셸리',
+  '"말하지 못한 이야기를 간직하는 것보다 더 큰 고통은 없다." - 마야 안젤루',
+  '"우리는 우리가 받을 자격이 있다고 생각하는 사랑을 받아들인다." - 스티븐 촘스키',
+  '“모든 행복한 가정은 서로 닮았지만, 불행한 가정은 각기 다른 이유로 불행하다.” - 레프 톨스토이',
+  '“어둠이 지나면 항상 빛이 온다.” - 빅토르 위고',
+  '“이 세상에 진정한 영웅은 없다. 오직 평범한 사람들이 있을 뿐이다.” - 찰스 디킨스',
+  '“나는 살기 위해 사랑한다. 사랑하기 위해 살지 않는다.” - 오노레 드 발자크',
+  '“진실은 고통스럽지만, 거짓은 해롭다.“ - 샬롯 브론테',
+  '“모든 인간은 그가 믿는 대로 살아간다.” - 도스토옙스키',
+  '“모든 것이 무너질 때, 그 무너진 곳에서 새로이 시작할 수 있다.” - 어니스트 헤밍웨이',
+  '“가장 중요한 것은 눈에 보이지 않는다.” - 앙투안 드 생텍쥐페리',
+  '“꿈이 없다면, 우리는 아무것도 이루지 못할 것이다.” - 찰스 디킨스',
+  '“우리가 알고 있는 것은 아무것도 없다. 그러나 우리는 모두 무언가를 추구한다.” - 프란츠 카프카',
+  '“내 마음이 그대를 향해 있는 한, 나는 결코 길을 잃지 않는다.” - 단테 알리기에리',
+  '“나는 고통 속에서도 나 자신을 찾을 것이다.“ - 프란츠 카프카',
+  '“삶이란 타인의 시선에서 자유로워지는 것이다.“ - 알베르 카뮈',
+  '“우리는 진실을 통해 세상을 이해한다.” - 마크 트웨인',
+  '“모든 인간은 두 개의 자아를 가지고 있다. 하나는 우리가 보여주고 싶은 자아이고, 다른 하나는 감추고 싶은 자아이다.” - 로버트 루이스 스티븐슨',
+  '“모든 위대한 것은 작은 시작에서 출발한다.” - 헨리 제임스',
+  '“모든 인간은 두 가지 운명 사이에서 살아간다. 그가 만들어가는 것과 그가 피하려고 하는 것.” - 가브리엘 가르시아 마르케스',
+  '“그렇다면 지금까지 나는 무엇을 했단 말인가?” - 알렉상드르 뒤마',
+  '“인간의 삶은 고독하고, 비참하고, 짧다.” - 토마스 홉스',
+  '“우리는 결국 기억의 파편들로 이루어진다.” - 마르셀 프루스트',
+  '“희망은 우리를 강하게 만들지만, 동시에 우리를 가장 약하게 만들기도 한다.” - 어니스트 헤밍웨이',
+  '“나는 이제 더 이상 당신의 인형이 아니다. 나는 내 자신의 길을 찾고 싶다.” - 헨리크 입센',
+  '“나는 단순히 존재하기 위해 존재한다.” - 장 폴 사르트르',
+  '“우리는 결국 우리가 선택한 길을 걷게 된다.” - 러디어드 키플링',
+  '“삶은 다른 무엇을 희생하고서라도 이루고 싶은 목표를 가지고 있을 때만 의미가 있다.” - 윌리엄 서머싯 몸',
+  '“나는 무엇이든지 할 수 있어. 난 뭐든지 될 수 있어.“ - 귀스타브 플로베르',
+  '“사람이란 그가 먹는 음식만큼이나 그가 생각하는 방식에 의해 정의된다.” - 존 스타인벡',
+  '"가장 중요한 것은 눈에 보이지 않아." - 앙투안 드 생텍쥐페리',
+  '"자유란, 2 더하기 2가 4라는 사실을 말할 수 있는 자유다." - 조지 오웰',
+  '"새는 알에서 나오려고 싸운다. 알은 세상이다. 태어나려는 자는 한 세계를 파괴해야 한다." - 헤르만 헤세',
+  '"인간은 자신을 정당화할 수 없는 삶을 살 수 없다." - 도스토옙스키',
+  '"인간은 패배하도록 만들어지지 않았다. 인간은 파괴될 수는 있어도 패배하지는 않는다." - 어니스트 헤밍웨이',
+  '"그래도 우리는 앞으로 나아가야만 한다. 끝없이 과거를 향해 밀려가면서도." - F. 스콧 피츠제럴드',
+  '"세상에 악인이 있어서 세상이 나쁜 것이 아니라, 사람이 욕심을 부리기 때문에 세상이 나빠지는 것이다." - 박경리',
+  '"행복은 가장 어두운 시기에도 찾을 수 있어. 단, 불을 켜는 것을 잃지 않는다면." - J.K. 롤링',
+  '"사랑은 슬픔 없이 존재하지 않는다." - 프랑수아즈 사강',
+  '"답이 없어 보이는 문제도, 시간이 지나면 자연스레 풀리기 마련이다." - 히가시노 게이고',
+  '"자유란 너 자신이 되는 것이다." - 리처드 바크',
+  '"진정인가 무엇인가를 원한다면, 온 우주는 그것을 이루도록 도와준다." - 파울로 코엘료',
+  '"정말 무언가를 말하는 사람은 만나기 힘들다." - J.D. 샐린저',
+  '"지금 이 순간을 소중히 여겨라. 왜냐하면, 지금 이 순간은 두 번 다신 오지 않으니까." - 츠츠이 야스타카',
+
+  '"우리는 끊임없이 선택을 해야 하지만, 선택이란 무엇인가를 버리는 일이다." - 김승옥',
+  '"불확실한 삶 속에서 가장 확실한 것은 바로 지금 이 순간이다." - 리 차일드',
+  '"나는 더 이상 내가 아닌 존재가 되고 싶다." - 한강',
+  '"죽음은 삶의 끝이 아니라 그 자체로 삶의 일부다." - 에리히 마리아 레마르크',
+  '"모든 인간은 자신의 운명을 스스로 만들어 나가야 한다." - 허먼 멜빌'
+];
+
+
+let todayLines = DEFAULT_TODAY_LINES.slice();
+if (Array.isArray(window.TODAY_LINES) && window.TODAY_LINES.length) {
+  todayLines = window.TODAY_LINES.slice();
+}
+
+  // ===== DOM =====
+const quoteText   = document.getElementById('quoteText');
+const quoteAuthor = document.getElementById('quoteAuthor');
+const quoteBlock  = document.getElementById('quoteBlock');
+  const intro = document.getElementById('screen-intro');
+  const result = document.getElementById('screen-result');
+  const nameInput = document.getElementById('nameInput');
+  const goBtn = document.getElementById('goBtn');
+  const title = document.getElementById('title');
+  const swatch = document.getElementById('swatch');
+  const luckyLabel = document.getElementById('luckyLabel');
+  const banner = document.getElementById('banner');
+  const msgToday = document.getElementById('msgToday');
+  const msgAdvice = document.getElementById('msgAdvice');
+
+  function parseNameFromURL(){
+    const u = new URL(window.location.href);
+    const hashName = u.hash ? decodeURIComponent(u.hash.replace(/^#\/?/, '')) : '';
+    const qName = u.searchParams.get('name') || u.searchParams.get('n') || '';
+    let pathName = '';
+    const parts = u.pathname.split('/').filter(Boolean);
+    if(parts.length){
+      const last = parts[parts.length-1];
+      if(!/\.html?$/.test(last)) pathName = decodeURIComponent(last);
+    }
+    return hashName || qName || pathName || '';
+  }
+
+function render(name){
+  const rng = seededRNG(name, todayYMD());
+  const lucky = devColorOverride() || FortuneTheme.pickColor(rng);
+  applyThemeFromLucky(lucky.hex);
+
+  title.textContent = `${name}님의 오늘의 운세입니다.`;
+  swatch.style.background = lucky.hex;
+  luckyLabel.textContent = `행운색 · ${lucky.name}`;
+  banner.style.background = `linear-gradient(90deg, ${lucky.hex}, rgba(255,255,255,.35))`;
+
+const line = choice(rng, moodLines);   // 오늘의 메시지
+const aph  = choice(rng, todayLines);  // 오늘의 문장("문장" - 작가)
+const adv  = choice(rng, adviceTasks); // 오늘의 조언(하나)
+
+msgToday.textContent  = `${line}`;
+msgAdvice.textContent = `${adv}`;
+
+// ⬇️ 문장/작가 분리 및 주입
+// 문장/작가 분리
+const qa = splitQuoteAuthor(aph);
+if (quoteText)   quoteText.textContent   = `“${qa.text}”`;
+if (quoteAuthor) quoteAuthor.textContent = `- ${qa.author} -`;
+
+
+  msgToday.textContent  = `${line}`;
+
+
+  intro.hidden = true; result.hidden = false;
+}
+function splitQuoteAuthor(line){
+  // 형식: "문장" - 작가  (따옴표는 “ ” " 모두 허용)
+  const m = line.match(/^[“”"']?\s*(.+?)\s*[”"']?\s*-\s*(.+)$/);
+  if (m) return { text: m[1].trim(), author: m[2].trim() };
+  // 포맷이 다르면 비상 처리
+  const parts = line.split(' - ');
+  return { text: (parts[0]||'').trim(), author: (parts[1]||'').trim() };
+}
+
+
+  function showIntro(){ intro.hidden = false; result.hidden = true; nameInput.focus(); }
+  function go(){
+    const raw = nameInput.value.trim();
+    if(!raw){ nameInput.focus(); return; }
+    const name = raw.replace(/\s+/g,' ');
+    render(name);
+  }
+
+  goBtn.addEventListener('click', go);
+  nameInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') go(); });
+
+  const urlName = parseNameFromURL();
+  if(urlName){ render(urlName); } else { showIntro(); }
+})();
+</script>
+</body>
+</html>
